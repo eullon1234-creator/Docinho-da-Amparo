@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Docinho da Amparo</title>
+    
+    <!-- Tailwind CSS (via CDN) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Pacifico&display=swap" rel="stylesheet">
+    
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Firebase SDK Compat -->
+    <script src="https://www.gstatic.com/firebasejs/10.10.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.10.0/firebase-firestore-compat.js"></script>
+
+    <!-- Tailwind Config and Custom CSS via JS -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        docinho: {
+                            light: '#fdf2f8',
+                            primary: '#f472b6',
+                            dark: '#be185d',
+                            choco: '#451a03',
+                            caramel: '#d97706',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Outfit', 'sans-serif'],
+                        display: ['Pacifico', 'cursive'],
+                    },
+                    boxShadow: {
+                        'soft': '0 10px 40px -10px rgba(0,0,0,0.05)',
+                        'floating': '0 -10px 40px -10px rgba(0,0,0,0.1)',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #fffaf0;
+            color: #451a03;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        ::-webkit-scrollbar {
+            width: 0px;
+            background: transparent;
+        }
+
+        .flavor-btn {
+            border: 2px solid #e5e7eb;
+            color: #6b7280;
+            background-color: white;
+            transition: all 0.2s ease-in-out;
+        }
+        .flavor-btn.active {
+            background-color: #fdf2f8; 
+            color: #ec4899;            
+            border-color: #f472b6;       
+            font-weight: 600;
+        }
+
+        .card-enter {
+            animation: slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        @keyframes slideUp {
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        #cart-modal {
+            transition: opacity 0.3s ease-in-out;
+        }
+        #cart-drawer {
+            transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .modal-open #cart-modal {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .modal-open #cart-drawer {
+            transform: translateY(0);
+        }
+        
+        /* Select arrow custom */
+        select {
+            background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3E%3C/svg%3E");
+            background-position: right .5rem center;
+            background-repeat: no-repeat;
+            background-size: 1.5em 1.5em;
+        }
+
+        .loader {
+            border: 4px solid #fdf2f8;
+            border-left-color: #f472b6;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="pb-32">
+
+    <!-- Header -->
+    <header class="bg-docinho-primary text-white rounded-b-[2.5rem] shadow-md pt-12 pb-14 px-6 relative overflow-hidden">
+        <div class="absolute inset-0 opacity-[0.08] bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMCIgaGVpZ2h0PSIyMCIgdmlld0JveD0iMCAwIDIwIDIwIj48Y2lyY2xlIGN4PSIyIiBjeT0iMiIgcj0iMiIgZmlsbD0iI2ZmZiIvPjwvc3ZnPg==')]"></div>
+        <div class="relative z-10 flex flex-col items-center text-center">
+            <div class="bg-white/20 p-3 rounded-full mb-3 backdrop-blur-sm border border-white/30">
+                <i class="fa-solid fa-cookie-bite text-3xl"></i>
+            </div>
+            <h1 class="font-display text-4xl mb-2 tracking-wide text-white drop-shadow-sm">Docinho da Amparo</h1>
+            <p class="text-white/90 text-sm font-medium tracking-wide">Amor em cada mordida ✨</p>
+        </div>
+    </header>
+
+    <!-- Catálogo -->
+    <main class="max-w-md mx-auto px-4 -mt-6 relative z-20 space-y-5" id="catalog">
+        <div class="bg-white p-6 rounded-3xl shadow-sm text-center flex flex-col items-center justify-center h-48 border border-gray-50">
+            <div class="loader mb-4"></div>
+            <p class="text-gray-400 font-medium text-sm">Carregando fornada fresquinha...</p>
+        </div>
+    </main>
+
+    <!-- Sacola Flutuante -->
+    <div class="fixed bottom-6 w-full max-w-md left-1/2 -translate-x-1/2 px-4 z-40 hidden" id="floating-cart">
+        <button onclick="toggleCart()" class="w-full bg-docinho-choco text-white rounded-[1.5rem] p-4 shadow-floating flex justify-between items-center active:scale-[0.98] transition-transform">
+            <div class="flex items-center gap-4">
+                <div class="relative bg-white/10 p-3 rounded-2xl">
+                    <i class="fa-solid fa-basket-shopping text-xl"></i>
+                    <span id="cart-count" class="absolute -top-2 -right-2 bg-docinho-primary text-white text-[11px] font-extrabold w-6 h-6 flex items-center justify-center rounded-full border-2 border-docinho-choco shadow-sm">0</span>
+                </div>
+                <div class="flex flex-col items-start">
+                    <span class="font-bold text-sm">Ver minha sacola</span>
+                    <span class="text-xs text-white/70 font-medium">Toque para finalizar</span>
+                </div>
+            </div>
+            <span id="cart-total-float" class="font-black text-xl tracking-tight">R$ 0,00</span>
+        </button>
+    </div>
+
+    <!-- Modal Sacola -->
+    <div id="cart-modal" class="fixed inset-0 z-50 opacity-0 pointer-events-none flex flex-col justify-end">
+        <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" onclick="toggleCart()"></div>
+        
+        <div id="cart-drawer" class="bg-white rounded-t-[2rem] w-full max-w-md mx-auto relative z-10 max-h-[92vh] h-auto flex flex-col transform translate-y-full shadow-2xl">
+            <div class="pt-4 pb-2 flex justify-center w-full" onclick="toggleCart()">
+                <div class="w-16 h-1.5 bg-gray-200 rounded-full"></div>
+            </div>
+            
+            <div class="px-6 py-4 flex justify-between items-center border-b border-gray-100 shrink-0">
+                <div class="flex items-center gap-3">
+                    <div class="bg-docinho-light text-docinho-primary p-2.5 rounded-2xl">
+                        <i class="fa-solid fa-basket-shopping text-xl"></i>
+                    </div>
+                    <h2 class="font-display text-2xl text-docinho-choco -mt-1">Sua Sacola</h2>
+                </div>
+                <button onclick="toggleCart()" class="text-gray-400 hover:text-gray-600 bg-gray-50 flex-shrink-0 p-2 rounded-full w-10 h-10 flex items-center justify-center">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            
+            <div class="flex-1 overflow-y-auto bg-[#fdfafb] pb-4">
+                <div id="cart-items" class="p-6 space-y-4"></div>
+                
+                <div id="checkout-form-container" class="px-6 pb-6 hidden">
+                    <div class="bg-white p-5 rounded-[1.5rem] shadow-sm border border-gray-100 flex flex-col gap-3">
+                        <h3 class="text-[13px] font-bold text-gray-700 uppercase tracking-wide flex items-center gap-2 mb-1">
+                            <i class="fa-solid fa-clipboard-list text-docinho-primary"></i> 
+                            Para Finalizar
+                        </h3>
+                        
+                        <input type="text" id="cliente-nome" placeholder="Seu nome completo" class="w-full bg-gray-50 border border-gray-200 text-sm rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-docinho-primary/50 font-medium text-gray-700">
+                        
+                        <div class="grid grid-cols-2 gap-3">
+                            <select id="cliente-entrega" title="Forma de entrega" class="w-full bg-gray-50 border border-gray-200 text-sm rounded-xl px-3 py-3 focus:outline-none focus:ring-2 focus:ring-docinho-primary/50 text-gray-600 font-medium appearance-none">
+                                <option value="" disabled selected>Entrega/Retirada</option>
+                                <option value="Retirada no local">Retirada no local</option>
+                                <option value="Entrega no endereço">Entregar (motoboy)</option>
+                            </select>
+                            
+                            <select id="cliente-pagamento" title="Método de Pagamento" class="w-full bg-gray-50 border border-gray-200 text-sm rounded-xl px-3 py-3 focus:outline-none focus:ring-2 focus:ring-docinho-primary/50 text-gray-600 font-medium appearance-none">
+                                <option value="" disabled selected>Pagamento</option>
+                                <option value="Pix">Pix</option>
+                                <option value="Dinheiro">Dinheiro</option>
+                                <option value="Cartão">Cartão</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="p-6 bg-white border-t border-gray-100 rounded-t-3xl shrink-0 shadow-[0_-10px_20px_-10px_rgba(0,0,0,0.05)]">
+                <div class="flex justify-between items-end mb-4">
+                    <span class="text-gray-500 font-medium text-sm">Total:</span>
+                    <span id="cart-total" class="font-black text-3xl text-docinho-choco tracking-tight">R$ 0,00</span>
+                </div>
+                <button onclick="checkoutWhatsApp()" class="w-full bg-[#25D366] text-white rounded-2xl py-4 font-bold text-lg flex items-center justify-center gap-3 hover:bg-[#20bd5a] active:scale-[0.98] transition-all">
+                    <i class="fa-brands fa-whatsapp text-2xl"></i>
+                    Enviar Pedido
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // CONFIGURAÇÃO DO FIREBASE (NUVEM DO GOOGLE)
+        const firebaseConfig = {
+            apiKey: "AIzaSyCB-5lsQYhMx-MNDFw03sKcizp-X7HDsZ8",
+            authDomain: "docinho-da-amparo.firebaseapp.com",
+            projectId: "docinho-da-amparo",
+            storageBucket: "docinho-da-amparo.firebasestorage.app",
+            messagingSenderId: "503730439952",
+            appId: "1:503730439952:web:19bdc54b5c6d1984310795"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        // ESTADOS DO APLICATIVO
+        let products = [];
+        let cart = [];
+        let selectedFlavors = {};
+
+        // Escutador em tempo real (Qualquer mudança no banco atualiza o site dos clientes)
+        db.collection("products").onSnapshot((querySnapshot) => {
+            products = [];
+            querySnapshot.forEach((doc) => {
+                products.push({ id: doc.id, ...doc.data() });
+            });
+            renderCatalog();
+        });
+
+        const formatCurrency = value => value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+        const selectFlavor = (productId, flavor) => {
+            selectedFlavors[productId] = flavor;
+            renderCatalog();
+        }
+
+        const addToCart = (productId) => {
+            // Garante que a checagem funcione pra IDs como String (do Firebase)
+            const product = products.find(p => p.id === productId);
+            
+            if (product.hasFlavor && !selectedFlavors[productId]) {
+                const flavorSection = document.getElementById(`flavor-section-${productId}`);
+                flavorSection.classList.add('animate-bounce');
+                setTimeout(() => flavorSection.classList.remove('animate-bounce'), 500);
+                return;
+            }
+
+            const flavor = product.hasFlavor ? selectedFlavors[productId] : (product.fixedFlavor || null);
+            const cartItemId = flavor ? `${productId}-${flavor}` : `${productId}`;
+            const existingItem = cart.find(item => item.cartItemId === cartItemId);
+            
+            if (existingItem) existingItem.quantity += 1;
+            else cart.push({ cartItemId, product, flavor, quantity: 1 });
+
+            // Animação visual de OK
+            const btn = document.getElementById(`btn-add-${productId}`);
+            if(btn) {
+                const inner = btn.innerHTML;
+                btn.innerHTML = '<i class="fa-solid fa-check mr-1"></i> Uhul! Na sacola!';
+                btn.classList.add('bg-docinho-primary', 'text-white', 'border-docinho-primary');
+                btn.classList.remove('text-docinho-primary', 'bg-docinho-light/50');
+                
+                if(product.hasFlavor){
+                    selectedFlavors[productId] = null;
+                    renderCatalog();
+                }
+                setTimeout(() => {
+                    btn.innerHTML = inner;
+                    btn.classList.remove('bg-docinho-primary', 'text-white', 'border-docinho-primary');
+                    btn.classList.add('text-docinho-primary', 'bg-docinho-light/50');
+                }, 1500);
+            }
+            updateCartUI();
+        }
+
+        const updateQuantity = (cartItemId, delta) => {
+            const item = cart.find(i => i.cartItemId === cartItemId);
+            if (item) {
+                item.quantity += delta;
+                if (item.quantity <= 0) cart = cart.filter(i => i.cartItemId !== cartItemId);
+            }
+            updateCartUI();
+        }
+
+        const removeFromCart = cartItemId => {
+            cart = cart.filter(i => i.cartItemId !== cartItemId);
+            updateCartUI();
+        }
+
+        const renderCatalog = () => {
+            const catalog = document.getElementById('catalog');
+            
+            if(products.length === 0) {
+                catalog.innerHTML = `
+                    <div class="bg-white p-6 rounded-3xl shadow-sm text-center flex flex-col items-center justify-center py-10 border border-gray-50">
+                        <i class="fa-regular fa-face-smile-wink text-4xl text-gray-300 mb-3"></i>
+                        <p class="text-gray-500 font-medium text-sm">O cardápio está sendo atualizado...</p>
+                    </div>`;
+                return;
+            }
+
+            catalog.innerHTML = '';
+            
+            products.forEach((product, index) => {
+                let flavorSelectionHTML = '';
+
+                if (product.hasFlavor && product.flavors) {
+                    const currentFlavor = selectedFlavors[product.id];
+                    const flavorButtons = product.flavors.map(flavor => `
+                        <button onclick="selectFlavor('${product.id}', '${flavor}')" 
+                                class="flavor-btn px-4 py-2 rounded-xl text-xs sm:text-sm flex-1 sm:flex-none ${currentFlavor === flavor ? 'active' : ''}">
+                            ${flavor}
+                        </button>
+                    `).join('');
+                    
+                    flavorSelectionHTML = `
+                        <div class="mt-4 pt-4 border-t border-gray-100" id="flavor-section-${product.id}">
+                            <p class="text-[11px] text-gray-500 mb-2 font-bold uppercase tracking-widest flex items-center gap-1">
+                                <i class="fa-solid fa-star text-yellow-400"></i> Escolha o Sabor <span class="text-red-400">*</span>
+                            </p>
+                            <div class="flex flex-wrap gap-2">
+                                ${flavorButtons}
+                            </div>
+                        </div>
+                    `;
+                } else if (product.fixedFlavor && product.fixedFlavor.trim() !== '') {
+                    flavorSelectionHTML = `
+                        <div class="mt-4 pt-3 border-t border-gray-100">
+                            <span class="inline-flex items-center gap-1.5 bg-slate-50 text-slate-500 px-3 py-1.5 rounded-lg text-[11px] font-bold border border-slate-100 uppercase tracking-widest">
+                                <i class="fa-solid fa-circle-info text-slate-400"></i> Sabor: ${product.fixedFlavor}
+                            </span>
+                        </div>
+                    `;
+                }
+
+                // Default placeholder se não houver foto url
+                const photoSrc = product.imageUrl ? product.imageUrl : 'https://placehold.co/300x300/fdf2f8/ec4899?text=Doce';
+
+                const cardHTML = `
+                    <div class="bg-white rounded-[1.5rem] p-5 shadow-soft border border-gray-50 card-enter" style="animation-delay: ${(index * 0.1)}s">
+                        <div class="flex gap-4">
+                            <div class="w-24 h-24 shrink-0 rounded-2xl overflow-hidden shadow-inner bg-gray-100 relative">
+                                <img src="${photoSrc}" class="w-full h-full object-cover" alt="${product.name}" onerror="this.src='https://placehold.co/300x300/fdf2f8/ec4899?text=Erro+-+Foto';">
+                            </div>
+                            <div class="flex flex-col flex-1 pb-1">
+                                <h3 class="font-bold text-docinho-choco text-[1.05rem] leading-tight mb-1">${product.name}</h3>
+                                <p class="text-[11px] text-gray-500 leading-snug mb-1.5 line-clamp-3">${product.description || ''}</p>
+                                <p class="text-docinho-primary font-black text-lg mt-auto">${formatCurrency(Number(product.price))}</p>
+                            </div>
+                        </div>
+                        
+                        ${flavorSelectionHTML}
+                        
+                        <div class="mt-4">
+                            <button id="btn-add-${product.id}" onclick="addToCart('${product.id}')" class="w-full h-11 font-bold text-docinho-primary bg-docinho-light/50 border border-docinho-light rounded-xl flex items-center justify-center gap-2 hover:bg-docinho-light active:scale-[0.98] transition-all">
+                                <i class="fa-solid fa-plus text-sm"></i> Adicionar
+                            </button>
+                        </div>
+                    </div>
+                `;
+                catalog.insertAdjacentHTML('beforeend', cardHTML);
+            });
+        }
+
+        const updateCartUI = () => {
+            const countEl = document.getElementById('cart-count');
+            const totalFloatEl = document.getElementById('cart-total-float');
+            const totalEl = document.getElementById('cart-total');
+            const floatingCart = document.getElementById('floating-cart');
+            const formContainer = document.getElementById('checkout-form-container');
+            
+            let count = 0;
+            let total = 0;
+
+            cart.forEach(item => {
+                count += item.quantity;
+                total += Number(item.product.price) * item.quantity;
+            });
+
+            countEl.textContent = count;
+            const formatted = formatCurrency(total);
+            totalFloatEl.textContent = formatted;
+            totalEl.textContent = formatted;
+
+            if (count > 0) {
+                floatingCart.classList.remove('hidden');
+                formContainer.classList.remove('hidden');
+            } else {
+                floatingCart.classList.add('hidden');
+                formContainer.classList.add('hidden');
+                if(document.body.classList.contains('modal-open')) toggleCart();
+            }
+
+            renderCartItems();
+        }
+
+        const renderCartItems = () => {
+            const container = document.getElementById('cart-items');
+            container.innerHTML = '';
+            if (cart.length === 0) return;
+
+            cart.forEach(item => {
+                const flavorBadge = item.flavor 
+                    ? `<span class="inline-block px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded text-[10px] font-bold uppercase mt-1 line-clamp-1">${item.flavor}</span>` 
+                    : '';
+                
+                const photoSrc = item.product.imageUrl ? item.product.imageUrl : 'https://placehold.co/300x300/fdf2f8/ec4899?text=Doce';
+
+                const itemHTML = `
+                    <div class="bg-white p-3 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-3">
+                        <div class="w-14 h-14 shrink-0 bg-gray-50 rounded-xl overflow-hidden">
+                            <img src="${photoSrc}" class="w-full h-full object-cover" onerror="this.src='https://placehold.co/300x300/fdf2f8/ec4899?text=X';">
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <h4 class="font-bold text-docinho-choco text-sm truncate">${item.product.name}</h4>
+                            ${flavorBadge}
+                            <div class="mt-1 font-black text-docinho-primary text-sm">${formatCurrency(Number(item.product.price) * item.quantity)}</div>
+                        </div>
+                        <div class="flex flex-col items-center">
+                            <div class="flex items-center bg-gray-50 border border-gray-200 rounded-lg p-1">
+                                <button onclick="updateQuantity('${item.cartItemId}', -1)" class="w-6 h-6 flex items-center justify-center bg-white rounded-md shadow-sm text-gray-500 hover:text-docinho-primary active:scale-95">
+                                    <i class="fa-solid fa-minus text-[10px]"></i>
+                                </button>
+                                <span class="w-6 text-center font-bold text-docinho-choco text-sm">${item.quantity}</span>
+                                <button onclick="updateQuantity('${item.cartItemId}', 1)" class="w-6 h-6 flex items-center justify-center bg-white rounded-md shadow-sm text-gray-500 hover:text-docinho-primary active:scale-95">
+                                    <i class="fa-solid fa-plus text-[10px]"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                container.insertAdjacentHTML('beforeend', itemHTML);
+            });
+        }
+
+        const toggleCart = () => {
+            const body = document.body;
+            body.classList.toggle('modal-open');
+            body.style.overflow = body.classList.contains('modal-open') ? 'hidden' : '';
+        }
+
+        const checkoutWhatsApp = () => {
+            if (cart.length === 0) return;
+
+            const nome = document.getElementById('cliente-nome').value.trim();
+            const entrega = document.getElementById('cliente-entrega').value;
+            const pagamento = document.getElementById('cliente-pagamento').value;
+
+            if(!nome) {
+                alert('Por favor, informe seu nome para sabermos quem está pedindo! 😊');
+                document.getElementById('cliente-nome').focus();
+                return;
+            }
+            if(!entrega) {
+                alert('Como dejesa receber seu pedido? Escolha e tente novamente! 🛵');
+                document.getElementById('cliente-entrega').focus();
+                return;
+            }
+            if(!pagamento) {
+                alert('Como deseja pagar? Selecione uma opção antes de finalizar! 💸');
+                document.getElementById('cliente-pagamento').focus();
+                return;
+            }
+
+            let msg = `🛍️ *Novo Pedido - Docinho da Amparo*\n\n`;
+            msg += `👤 *Cliente:* ${nome}\n`;
+            msg += `🚚 *Método:* ${entrega}\n`;
+            msg += `💸 *Pagamento:* ${pagamento}\n\n`;
+            msg += `_🛒 Resumo dos Itens:_\n`;
+
+            let total = 0;
+            cart.forEach(item => {
+                const sub = Number(item.product.price) * item.quantity;
+                total += sub;
+                const flavor = item.flavor ? ` (${item.flavor})` : '';
+                msg += `🔸 ${item.quantity}x *${item.product.name}*${flavor} - ${formatCurrency(sub)}\n`;
+            });
+
+            msg += `\n---------------------------\n`;
+            msg += `💰 *Total Previsto:* ${formatCurrency(total)}\n`;
+            msg += `---------------------------\n\n`;
+            
+            if(entrega === 'Entrega no endereço') {
+                msg += `Oi! Confirmo meu pedido. Já podem me consultar a taxa de entrega pro meu endereço? 💖`;
+            } else {
+                msg += `Oi! Confirmo meu pedido. Vou passar aí pra retirar, tá bem? 💖`;
+            }
+
+            // Zap Hardcoded da Amparo
+            const numZap = "558994289564"; 
+            const link = `https://wa.me/${numZap}?text=${encodeURIComponent(msg)}`;
+            window.open(link, '_blank');
+        }
+
+    </script>
+</body>
+</html>

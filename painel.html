@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Painel Web - Docinho da Amparo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Pacifico&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Firebase SDK Compat -->
+    <script src="https://www.gstatic.com/firebasejs/10.10.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.10.0/firebase-firestore-compat.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        docinho: {
+                            light: '#fdf2f8', primary: '#f472b6', choco: '#451a03',
+                        }
+                    },
+                    fontFamily: { sans: ['Outfit', 'sans-serif'], display: ['Pacifico', 'cursive'], }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { background-color: #f8fafc; color: #334155; }
+        .spin { animation: spin 1s linear infinite; }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="pb-20">
+
+    <!-- Tela de Bloqueio por Senha (Segurança Simples) -->
+    <div id="login-overlay" class="fixed inset-0 bg-docinho-choco z-[100] flex flex-col items-center justify-center px-6">
+        <div class="bg-white p-8 rounded-3xl w-full max-w-sm text-center shadow-xl">
+            <div class="bg-docinho-light text-docinho-primary w-16 h-16 rounded-full flex items-center justify-center text-3xl mx-auto mb-4">
+                <i class="fa-solid fa-lock"></i>
+            </div>
+            <h2 class="font-display text-2xl text-docinho-choco mb-2">Acesso Restrito</h2>
+            <p class="text-sm text-gray-500 mb-6 font-medium">Digite a senha para gerenciar a loja</p>
+            
+            <input type="password" id="admin-pass" placeholder="Senha secreta" class="w-full bg-gray-50 border border-t-[1px] border-b-2 border-r-[1px] border-l-[1px] border-b-docinho-primary border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:bg-white text-center mb-4 tracking-widest text-lg font-bold">
+            
+            <button onclick="checkPassword()" class="w-full bg-docinho-primary text-white font-bold py-3 rounded-xl shadow-lg hover:bg-pink-500 active:scale-95 transition-all">
+                Entrar no Painel
+            </button>
+            <p class="text-xs text-gray-400 mt-4">(Dica pra você: a senha é amparo)</p>
+        </div>
+    </div>
+
+    <!-- Interface Principal do Painel -->
+    <div id="app-content" class="hidden">
+        <header class="bg-docinho-choco text-white pt-8 pb-10 px-6 rounded-b-[2rem] shadow-md relative overflow-hidden">
+            <div class="relative z-10 flex flex-col items-center text-center">
+                <h1 class="font-display text-3xl mb-1">Painel da Amparo</h1>
+                <p class="text-white/80 text-sm">Gerenciador Nuvem <i class="fa-solid fa-cloud text-xs ml-1"></i></p>
+            </div>
+            <a href="index.html" class="absolute top-8 left-6 bg-white/20 px-3 py-2 rounded-xl text-white text-sm font-bold backdrop-blur-sm shadow-sm hover:bg-white/30 transition-all">
+                <i class="fa-solid fa-store mr-1"></i> Loja
+            </a>
+            <button onclick="logOut()" class="absolute top-8 right-6 bg-red-500/20 px-3 py-2 rounded-xl text-white text-sm font-bold backdrop-blur-sm shadow-sm hover:bg-red-500/40 transition-all">
+                Sair
+            </button>
+        </header>
+
+        <main class="max-w-2xl mx-auto px-4 -mt-6 relative z-20 space-y-4">
+            <div class="flex justify-between items-end mb-4 px-2">
+                <h2 class="font-bold text-gray-800 text-lg">Seus Doces na Nuvem</h2>
+                <button onclick="openForm()" class="bg-docinho-primary text-white font-bold text-sm px-4 py-2 rounded-xl shadow-sm hover:bg-pink-500 active:scale-95 transition-all">
+                    <i class="fa-solid fa-plus mr-1"></i> Novo Doce
+                </button>
+            </div>
+
+            <!-- Botão popular para o primeiro acesso (só aparece se estiver vazio) -->
+            <div id="populate-container" class="hidden bg-yellow-50 border border-yellow-200 p-4 rounded-2xl mb-4 text-center">
+                <p class="text-yellow-700 text-sm font-bold mb-2">O banco de dados está vazio!</p>
+                <button onclick="populateDefaults()" class="bg-yellow-400 text-yellow-900 px-4 py-2 rounded-xl font-bold text-sm shadow-sm hover:bg-yellow-500">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i> Adicionar Doces de Exemplo
+                </button>
+            </div>
+
+            <div id="admin-product-list" class="space-y-4">
+                <div class="text-center py-10 text-gray-400"><i class="fa-solid fa-spinner spin text-2xl"></i></div>
+            </div>
+        </main>
+
+        <!-- Modal de Formulário -->
+        <div id="product-modal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm hidden flex items-center justify-center p-4">
+            <div class="bg-white w-full max-w-lg rounded-2xl shadow-xl overflow-hidden flex flex-col max-h-[90vh]">
+                <div class="p-6 border-b flex justify-between items-center bg-gray-50">
+                    <h3 id="modal-title" class="font-bold text-docinho-choco text-xl">Novo Produto</h3>
+                    <button onclick="closeForm()" class="text-gray-400 hover:text-gray-600 w-8 h-8 flex items-center justify-center rounded-full bg-gray-200">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+                
+                <div class="p-6 overflow-y-auto flex-1 space-y-4">
+                    <input type="hidden" id="p-id">
+                    
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Nome do Doce</label>
+                        <input type="text" id="p-name" placeholder="Ex: Bolo de Pote" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-docinho-primary/50 text-sm font-medium">
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Preço (R$)</label>
+                            <input type="number" step="0.01" id="p-price" placeholder="Ex: 15.50" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-docinho-primary/50 text-sm font-medium">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Link da Foto (URL)</label>
+                        <input type="text" id="p-image" placeholder="https://..." class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-docinho-primary/50 text-sm font-medium">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Descrição</label>
+                        <textarea id="p-desc" rows="2" placeholder="Casquinha crocante recheada..." class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-docinho-primary/50 text-sm font-medium"></textarea>
+                    </div>
+
+                    <div class="border-t border-gray-100 pt-4 mt-2">
+                        <label class="block text-xs font-bold text-docinho-primary uppercase mb-2"><i class="fa-solid fa-star"></i> Opções de Sabor</label>
+                        <select id="p-flavor-type" onchange="toggleFlavorInput()" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-docinho-primary/50 text-sm font-medium mb-3">
+                            <option value="none">Sabor único (Sem opções para escolher)</option>
+                            <option value="fixed">Exibir sabor fixo pro cliente</option>
+                            <option value="multiple">Cliente escolhe o sabor na hora</option>
+                        </select>
+
+                        <div id="flavor-fixed-div" class="hidden">
+                            <label class="block text-xs font-bold text-gray-500 mb-1">Qual é o sabor fixo?</label>
+                            <input type="text" id="p-flavor-fixed" placeholder="Ex: Brigadeiro Belga" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2 text-sm">
+                        </div>
+
+                        <div id="flavor-multiple-div" class="hidden">
+                            <label class="block text-xs font-bold text-gray-500 mb-1">Lista de sabores (Separe por vírgula):</label>
+                            <input type="text" id="p-flavor-list" placeholder="Limão, Brigadeiro, Maracujá" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2 text-sm">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="p-6 bg-gray-50 border-t flex gap-3">
+                    <button onclick="closeForm()" class="flex-1 bg-white border border-gray-200 text-gray-600 font-bold py-3 rounded-xl hover:bg-gray-100 transition-all">Cancelar</button>
+                    <button id="btn-save" onclick="saveProduct()" class="flex-1 bg-docinho-primary text-white font-bold py-3 rounded-xl shadow-lg hover:bg-pink-500 active:scale-95 transition-all">Salvar Doce</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts de Logica e Firebase -->
+    <script>
+        // CONFIGURAÇÃO DO FIREBASE
+        const firebaseConfig = {
+            apiKey: "AIzaSyCB-5lsQYhMx-MNDFw03sKcizp-X7HDsZ8",
+            authDomain: "docinho-da-amparo.firebaseapp.com",
+            projectId: "docinho-da-amparo",
+            storageBucket: "docinho-da-amparo.firebasestorage.app",
+            messagingSenderId: "503730439952",
+            appId: "1:503730439952:web:19bdc54b5c6d1984310795"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        let products = [];
+
+        // SISTEMA DE LOGIN SIMPLES NO NAVEGADOR
+        const checkPassword = () => {
+            const pass = document.getElementById('admin-pass').value;
+            if(pass === 'amparo') {
+                sessionStorage.setItem('amparo_logged', 'true');
+                document.getElementById('login-overlay').style.display = 'none';
+                document.getElementById('app-content').classList.remove('hidden');
+            } else {
+                alert('A senha está incorreta!');
+            }
+        }
+        
+        // Verifica se já ta logado na sessão ao abrir a pag
+        if(sessionStorage.getItem('amparo_logged') === 'true') {
+            document.getElementById('login-overlay').style.display = 'none';
+            document.getElementById('app-content').classList.remove('hidden');
+        }
+
+        const logOut = () => {
+            sessionStorage.removeItem('amparo_logged');
+            window.location.reload();
+        }
+
+        const formatCurrency = val => val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+        // ESCUTADOR DO BANCO DE DADOS EM TEMPO REAL
+        db.collection("products").onSnapshot((querySnapshot) => {
+            products = [];
+            
+            if(querySnapshot.empty) {
+                document.getElementById('populate-container').classList.remove('hidden');
+                document.getElementById('admin-product-list').innerHTML = '<div class="text-center py-10 text-gray-400">Cardápio Vazio!</div>';
+                return;
+            } else {
+                document.getElementById('populate-container').classList.add('hidden');
+            }
+
+            querySnapshot.forEach((doc) => {
+                products.push({ id: doc.id, ...doc.data() });
+            });
+            renderProducts();
+        });
+
+        // POPULAR BANCO DE DADOS COM DOCES DE EXEMPLO NO PRIMEIRO ACESSO
+        const populateDefaults = async () => {
+            document.getElementById('populate-container').innerHTML = '<div class="text-center py-4 text-yellow-700 font-bold"><i class="fa-solid fa-spinner spin text-2xl mb-2"></i><br>Adicionando doces na nuvem...</div>';
+            
+            const defs = [
+                { name: 'Trufa Grande', description: 'Casquinha nobre crocantinha com recheio especial que derrete na boca.', price: 5.00, hasFlavor: true, flavors: ['Limão', 'Brigadeiro', 'Maracujá'], fixedFlavor: null, imageUrl: 'https://images.unsplash.com/photo-1548844883-93d39dbce37d?w=300&q=80' },
+                { name: 'Ovo de Páscoa', description: 'Meio ovo de colher super recheado e decorado.', price: 10.00, hasFlavor: false, flavors: [], fixedFlavor: 'Chocolate meio amargo', imageUrl: 'https://images.unsplash.com/photo-1618118080065-420da2bb1797?w=300&q=80' },
+                { name: 'Cone Trufado', description: 'Casquinha de sorvete fresquinha e lotada de creme.', price: 6.00, hasFlavor: true, flavors: ['Brigadeiro', 'Morango'], fixedFlavor: null, imageUrl: 'https://images.unsplash.com/photo-1543339308-43e59d6b73a6?w=300&q=80' }
+            ];
+
+            for(let p of defs) {
+                await db.collection("products").add(p);
+            }
+        }
+
+        const renderProducts = () => {
+            const list = document.getElementById('admin-product-list');
+            list.innerHTML = '';
+
+            products.forEach(p => {
+                let badge = '';
+                if(p.hasFlavor) badge = `<span class="bg-purple-100 text-purple-700 text-[10px] px-2 py-0.5 rounded font-bold uppercase">Vários Sabores</span>`;
+                else if(p.fixedFlavor && p.fixedFlavor.trim() !== '') badge = `<span class="bg-blue-100 text-blue-700 text-[10px] px-2 py-0.5 rounded font-bold uppercase">Sabor Fixo</span>`;
+                else badge = `<span class="bg-gray-100 text-gray-500 text-[10px] px-2 py-0.5 rounded font-bold uppercase">Sabor Único</span>`;
+
+                const photoSrc = p.imageUrl ? p.imageUrl : 'https://placehold.co/300x300/fdf2f8/ec4899?text=X';
+
+                list.innerHTML += `
+                    <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between gap-4">
+                        <div class="flex items-center gap-4 flex-1">
+                            <div class="w-16 h-16 rounded-xl bg-gray-100 overflow-hidden shrink-0 border">
+                                <img src="${photoSrc}" class="w-full h-full object-cover">
+                            </div>
+                            <div class="min-w-0">
+                                <h3 class="font-bold text-gray-800 truncate">${p.name}</h3>
+                                <div class="font-black text-docinho-primary text-sm">${formatCurrency(Number(p.price))}</div>
+                                <div class="mt-1">${badge}</div>
+                            </div>
+                        </div>
+                        <div class="flex flex-col gap-2 shrink-0">
+                            <button onclick="editProduct('${p.id}')" class="text-gray-400 hover:text-blue-500 p-2 bg-gray-50 rounded-lg transition-colors border shadow-sm"><i class="fa-solid fa-pen"></i></button>
+                            <button onclick="deleteProduct('${p.id}')" class="text-gray-400 hover:text-red-500 p-2 bg-gray-50 rounded-lg transition-colors border shadow-sm"><i class="fa-solid fa-trash"></i></button>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        const openForm = (id = null) => {
+            document.getElementById('product-modal').classList.remove('hidden');
+            
+            if(id) {
+                const p = products.find(i => i.id === id);
+                document.getElementById('modal-title').innerText = 'Editar Doce';
+                document.getElementById('p-id').value = p.id;
+                document.getElementById('p-name').value = p.name;
+                document.getElementById('p-price').value = p.price;
+                document.getElementById('p-image').value = p.imageUrl || '';
+                document.getElementById('p-desc').value = p.description || '';
+                
+                const typeSelect = document.getElementById('p-flavor-type');
+                if(p.hasFlavor) {
+                    typeSelect.value = 'multiple';
+                    document.getElementById('p-flavor-list').value = p.flavors ? p.flavors.join(', ') : '';
+                } else if(p.fixedFlavor && p.fixedFlavor.trim() !== '') {
+                    typeSelect.value = 'fixed';
+                    document.getElementById('p-flavor-fixed').value = p.fixedFlavor;
+                } else {
+                    typeSelect.value = 'none';
+                }
+            } else {
+                document.getElementById('modal-title').innerText = 'Novo Doce';
+                document.getElementById('p-id').value = '';
+                document.getElementById('p-name').value = '';
+                document.getElementById('p-price').value = '';
+                document.getElementById('p-image').value = '';
+                document.getElementById('p-desc').value = '';
+                document.getElementById('p-flavor-type').value = 'none';
+                document.getElementById('p-flavor-fixed').value = '';
+                document.getElementById('p-flavor-list').value = '';
+            }
+            toggleFlavorInput();
+        }
+
+        const closeForm = () => {
+            document.getElementById('product-modal').classList.add('hidden');
+            document.getElementById('btn-save').innerHTML = 'Salvar Doce';
+        }
+
+        const toggleFlavorInput = () => {
+            const val = document.getElementById('p-flavor-type').value;
+            document.getElementById('flavor-fixed-div').classList.toggle('hidden', val !== 'fixed');
+            document.getElementById('flavor-multiple-div').classList.toggle('hidden', val !== 'multiple');
+        }
+
+        const saveProduct = async () => {
+            const idInput = document.getElementById('p-id').value;
+            const name = document.getElementById('p-name').value.trim();
+            const price = parseFloat(document.getElementById('p-price').value);
+            const image = document.getElementById('p-image').value.trim();
+            const desc = document.getElementById('p-desc').value.trim();
+            const flavorType = document.getElementById('p-flavor-type').value;
+
+            if(!name || isNaN(price)) {
+                alert('Nome e Preço são obrigatórios!');
+                return;
+            }
+
+            let hasFlavor = false;
+            let fixedFlavor = null;
+            let flavors = [];
+
+            if(flavorType === 'fixed') {
+                fixedFlavor = document.getElementById('p-flavor-fixed').value.trim();
+            } else if(flavorType === 'multiple') {
+                hasFlavor = true;
+                const list = document.getElementById('p-flavor-list').value;
+                flavors = list.split(',').map(s => s.trim()).filter(s => s);
+            }
+
+            const productData = {
+                name: name,
+                price: price,
+                description: desc,
+                imageUrl: image,
+                hasFlavor: hasFlavor,
+                fixedFlavor: fixedFlavor,
+                flavors: flavors
+            };
+
+            const btn = document.getElementById('btn-save');
+            btn.innerHTML = '<i class="fa-solid fa-spinner spin"></i> Salvando...';
+
+            try {
+                if(idInput) {
+                    await db.collection("products").doc(idInput).update(productData);
+                } else {
+                    await db.collection("products").add(productData);
+                }
+                closeForm();
+            } catch (err) {
+                console.error(err);
+                alert('Erro ao salvar produto. Verifique sua conexão.');
+                btn.innerHTML = 'Salvar Doce';
+            }
+        }
+
+        // Deixando window global pro HTML onclick reconhecer
+        window.editProduct = openForm;
+
+        const deleteProduct = async (id) => {
+            if(confirm('Tem certeza que deseja excluir esse doce? Ele sumirá da loja imediatamente.')) {
+                try {
+                    await db.collection("products").doc(id).delete();
+                } catch (err) {
+                    alert('Houve um erro ao excluir.');
+                }
+            }
+        }
+    </script>
+</body>
+</html>
