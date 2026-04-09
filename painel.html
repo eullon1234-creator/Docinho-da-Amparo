@@ -88,6 +88,22 @@
                 </div>
             </div>
 
+            <!-- Card Gerar Status WhatsApp -->
+            <div class="bg-gradient-to-r from-[#25D366]/10 to-[#128C7E]/10 rounded-2xl border border-[#25D366]/30 p-5">
+                <div class="flex items-center gap-4">
+                    <div class="bg-[#25D366] text-white w-14 h-14 rounded-2xl flex items-center justify-center text-2xl shrink-0">
+                        <i class="fa-brands fa-whatsapp"></i>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <p class="font-bold text-gray-800">Status para WhatsApp</p>
+                        <p class="text-xs text-gray-500 mt-0.5">Gere mensagem + fotos prontas para divulgar</p>
+                    </div>
+                    <button onclick="openStatusModal()" class="shrink-0 bg-[#25D366] text-white px-4 py-2 rounded-xl font-bold text-sm shadow-sm hover:bg-[#20bd5a] active:scale-95 transition-all">
+                        <i class="fa-solid fa-wand-magic-sparkles mr-1"></i> Gerar
+                    </button>
+                </div>
+            </div>
+
             <!-- Card de Visitas -->
             <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 flex items-center gap-4">
                 <div class="bg-docinho-light text-docinho-primary w-14 h-14 rounded-2xl flex items-center justify-center text-2xl shrink-0">
@@ -121,6 +137,59 @@
                 <div class="text-center py-10 text-gray-400"><i class="fa-solid fa-spinner spin text-2xl"></i></div>
             </div>
         </main>
+
+        <!-- Modal de Status para WhatsApp -->
+        <div id="status-modal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm hidden flex items-center justify-center p-4">
+            <div class="bg-white w-full max-w-lg rounded-2xl shadow-xl overflow-hidden flex flex-col max-h-[90vh]">
+                <div class="p-5 border-b flex justify-between items-center bg-gray-50">
+                    <div class="flex items-center gap-3">
+                        <div class="bg-[#25D366] text-white w-9 h-9 rounded-xl flex items-center justify-center text-lg">
+                            <i class="fa-brands fa-whatsapp"></i>
+                        </div>
+                        <h3 class="font-bold text-docinho-choco text-xl">Status para WhatsApp</h3>
+                    </div>
+                    <button onclick="closeStatusModal()" class="text-gray-400 hover:text-gray-600 w-8 h-8 flex items-center justify-center rounded-full bg-gray-200">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+
+                <div class="p-5 overflow-y-auto flex-1 space-y-5">
+                    <!-- Link da loja -->
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Link da sua loja</label>
+                        <div class="flex gap-2">
+                            <input type="text" id="store-link" placeholder="https://seulink.com" class="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#25D366]/50">
+                            <button onclick="saveStoreLink(event)" class="bg-gray-100 border border-gray-200 text-gray-700 px-3 py-2 rounded-xl text-sm font-bold hover:bg-gray-200 transition-all">Salvar</button>
+                        </div>
+                        <p class="text-[11px] text-gray-400 mt-1">Esse link vai aparecer na mensagem gerada.</p>
+                    </div>
+
+                    <!-- Mensagem gerada -->
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="block text-xs font-bold text-gray-500 uppercase">Mensagem pronta</label>
+                            <button onclick="copyStatusText()" id="btn-copy-status" class="text-[#25D366] text-xs font-bold flex items-center gap-1 bg-green-50 px-3 py-1 rounded-lg border border-green-100 transition-all">
+                                <i class="fa-regular fa-copy"></i> Copiar
+                            </button>
+                        </div>
+                        <textarea id="status-text" rows="10" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium resize-none focus:outline-none focus:ring-2 focus:ring-[#25D366]/50"></textarea>
+                    </div>
+
+                    <!-- Fotos dos produtos -->
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Fotos dos produtos</label>
+                        <p class="text-[11px] text-gray-400 mb-3">Toque em <i class="fa-solid fa-arrow-up-right-from-square"></i> para abrir cada foto em tela cheia e salvar no celular.</p>
+                        <div id="status-photos" class="grid grid-cols-2 gap-3"></div>
+                    </div>
+                </div>
+
+                <div class="p-5 bg-gray-50 border-t">
+                    <button onclick="copyStatusText()" class="w-full bg-[#25D366] text-white font-bold py-3 rounded-xl shadow-lg hover:bg-[#20bd5a] active:scale-95 transition-all flex items-center justify-center gap-2">
+                        <i class="fa-regular fa-copy"></i> Copiar Mensagem
+                    </button>
+                </div>
+            </div>
+        </div>
 
         <!-- Modal de Formulário -->
         <div id="product-modal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm hidden flex items-center justify-center p-4">
@@ -457,6 +526,112 @@
                 }
             }
         }
+
+        // -------- STATUS WHATSAPP --------
+        const openStatusModal = () => {
+            document.getElementById('status-modal').classList.remove('hidden');
+            const saved = localStorage.getItem('amparo_store_link') || '';
+            document.getElementById('store-link').value = saved;
+            generateStatusContent();
+        };
+
+        const closeStatusModal = () => {
+            document.getElementById('status-modal').classList.add('hidden');
+        };
+
+        const saveStoreLink = (event) => {
+            const link = document.getElementById('store-link').value.trim();
+            localStorage.setItem('amparo_store_link', link);
+            generateStatusContent();
+            const btn = event.currentTarget;
+            const original = btn.textContent;
+            btn.textContent = '✓ Salvo!';
+            btn.classList.add('bg-green-100', 'text-green-700');
+            setTimeout(() => {
+                btn.textContent = original;
+                btn.classList.remove('bg-green-100', 'text-green-700');
+            }, 1500);
+        };
+
+        const generateStatusContent = () => {
+            const storeLink = document.getElementById('store-link').value.trim();
+
+            let msg = `🍫 *Docinho da Amparo*\n`;
+            msg += `_Amor em cada mordida_ ✨\n\n`;
+
+            if (products.length > 0) {
+                msg += `🍬 *Cardápio de hoje:*\n`;
+                products.forEach(p => {
+                    const price = Number(p.price).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+                    const flavors = p.hasFlavor && p.flavors?.length ? ` (${p.flavors.join(', ')})` : '';
+                    const fixed = p.fixedFlavor && p.fixedFlavor.trim() ? ` — ${p.fixedFlavor}` : '';
+                    msg += `🔸 *${p.name}*${fixed}${flavors} — ${price}\n`;
+                });
+                msg += `\n`;
+            }
+
+            if (storeLink) {
+                msg += `🛒 *Faça seu pedido:*\n${storeLink}\n\n`;
+            }
+
+            msg += `📲 Acesse o cardápio completo e escolha o seu! 💕`;
+
+            document.getElementById('status-text').value = msg;
+
+            const photosContainer = document.getElementById('status-photos');
+            photosContainer.innerHTML = '';
+            const withPhotos = products.filter(p => p.imageUrl && p.imageUrl.trim());
+
+            if (withPhotos.length === 0) {
+                photosContainer.innerHTML = '<p class="text-sm text-gray-400 col-span-2 text-center py-4">Nenhum produto com foto cadastrada.</p>';
+                return;
+            }
+
+            withPhotos.forEach(p => {
+                const price = Number(p.price).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+                photosContainer.innerHTML += `
+                    <div class="relative rounded-2xl overflow-hidden border border-gray-100 shadow-sm bg-gray-100" style="aspect-ratio:1">
+                        <img src="${p.imageUrl}" class="w-full h-full object-cover" alt="${p.name}" onerror="this.parentElement.style.display='none'">
+                        <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2">
+                            <p class="text-white text-xs font-bold truncate">${p.name}</p>
+                            <p class="text-white/80 text-[10px]">${price}</p>
+                        </div>
+                        <a href="${p.imageUrl}" target="_blank" rel="noopener" class="absolute top-2 right-2 bg-white/90 text-gray-700 w-8 h-8 rounded-xl flex items-center justify-center shadow hover:bg-white transition-all" title="Abrir foto">
+                            <i class="fa-solid fa-arrow-up-right-from-square text-xs"></i>
+                        </a>
+                    </div>
+                `;
+            });
+        };
+
+        const copyStatusText = () => {
+            const text = document.getElementById('status-text').value;
+            const btn = document.getElementById('btn-copy-status');
+
+            const success = () => {
+                btn.innerHTML = '<i class="fa-solid fa-check"></i> Copiado!';
+                btn.classList.add('bg-green-500', 'text-white', 'border-green-500');
+                btn.classList.remove('text-[#25D366]', 'bg-green-50', 'border-green-100');
+                setTimeout(() => {
+                    btn.innerHTML = '<i class="fa-regular fa-copy"></i> Copiar';
+                    btn.classList.remove('bg-green-500', 'text-white', 'border-green-500');
+                    btn.classList.add('text-[#25D366]', 'bg-green-50', 'border-green-100');
+                }, 2000);
+            };
+
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).then(success).catch(() => {
+                    document.getElementById('status-text').select();
+                    document.execCommand('copy');
+                    success();
+                });
+            } else {
+                const ta = document.getElementById('status-text');
+                ta.select();
+                document.execCommand('copy');
+                success();
+            }
+        };
     </script>
 </body>
 </html>
