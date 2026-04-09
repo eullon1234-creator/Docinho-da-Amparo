@@ -202,6 +202,10 @@
                                 <i class="fa-solid fa-triangle-exclamation text-lg"></i>
                                 Entrega disponível apenas para pedidos a partir de R$ 30,00.
                             </div>
+                            <div id="aviso-entrega-desativada" class="hidden bg-red-50 border border-red-100 text-red-600 text-xs p-3 rounded-xl font-medium flex items-center gap-2">
+                                <i class="fa-solid fa-ban text-lg"></i>
+                                Entrega em casa indisponível no momento. Apenas retirada no local.
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -237,6 +241,31 @@
         let products = [];
         let cart = [];
         let selectedFlavors = {};
+
+        // REGISTRAR VISITA NA LOJA
+        db.collection("stats").doc("visits").set(
+            { count: firebase.firestore.FieldValue.increment(1) },
+            { merge: true }
+        );
+
+        // ESCUTA STATUS DE ENTREGA EM TEMPO REAL
+        db.collection("stats").doc("delivery").onSnapshot((doc) => {
+            const enabled = doc.exists ? (doc.data().enabled !== false) : true;
+            const optEntrega = document.getElementById('opt-entrega');
+            const avisoDesativado = document.getElementById('aviso-entrega-desativada');
+            if (!optEntrega) return;
+            if (enabled) {
+                optEntrega.style.display = '';
+                if (avisoDesativado) avisoDesativado.classList.add('hidden');
+            } else {
+                optEntrega.style.display = 'none';
+                const entregaSel = document.getElementById('cliente-entrega');
+                if (entregaSel && entregaSel.value === 'Entrega no endereço') {
+                    entregaSel.value = 'Retirada no local';
+                }
+                if (avisoDesativado) avisoDesativado.classList.remove('hidden');
+            }
+        });
 
         // Escutador em tempo real (Qualquer mudança no banco atualiza o site dos clientes)
         db.collection("products").onSnapshot((querySnapshot) => {

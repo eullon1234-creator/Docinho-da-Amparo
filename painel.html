@@ -68,6 +68,40 @@
         </header>
 
         <main class="max-w-2xl mx-auto px-4 mt-8 relative z-20 space-y-4">
+            <!-- Card de Toggle de Entrega -->
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5" id="delivery-card">
+                <div class="flex items-center gap-4">
+                    <div class="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl shrink-0 transition-colors" id="delivery-icon-bg">
+                        <i class="fa-solid fa-motorcycle" id="delivery-icon"></i>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-0.5">Entrega em Casa</p>
+                        <p class="font-bold text-base leading-tight" id="delivery-status-text">
+                            <i class="fa-solid fa-spinner spin text-gray-300"></i>
+                        </p>
+                        <p class="text-xs text-gray-400 mt-0.5" id="delivery-status-sub"></p>
+                    </div>
+                    <button onclick="toggleDelivery()" id="delivery-btn"
+                        class="shrink-0 px-4 py-2 rounded-xl font-bold text-sm transition-all active:scale-95 shadow-sm">
+                        <i class="fa-solid fa-spinner spin"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Card de Visitas -->
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 flex items-center gap-4">
+                <div class="bg-docinho-light text-docinho-primary w-14 h-14 rounded-2xl flex items-center justify-center text-2xl shrink-0">
+                    <i class="fa-solid fa-eye"></i>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <p class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Visitas na Loja</p>
+                    <p class="font-black text-3xl text-docinho-choco leading-none" id="visit-count">
+                        <i class="fa-solid fa-spinner spin text-xl text-gray-300"></i>
+                    </p>
+                    <p class="text-xs text-gray-400 mt-1">pessoas acessaram o link da loja</p>
+                </div>
+            </div>
+
             <div class="flex justify-between items-end mb-6 px-2">
                 <h2 class="font-bold text-gray-800 text-lg">Seus Doces na Nuvem</h2>
                 <button onclick="openForm()" class="bg-docinho-primary text-white font-bold text-sm px-4 py-2 rounded-xl shadow-sm hover:bg-pink-500 active:scale-95 transition-all">
@@ -359,6 +393,60 @@
 
         // Deixando window global pro HTML onclick reconhecer
         window.editProduct = openForm;
+
+        // ESCUTADOR DE VISITAS EM TEMPO REAL
+        db.collection("stats").doc("visits").onSnapshot((doc) => {
+            const el = document.getElementById('visit-count');
+            if (el) {
+                const count = doc.exists ? (doc.data().count || 0) : 0;
+                el.textContent = count.toLocaleString('pt-BR');
+            }
+        });
+
+        // TOGGLE DE ENTREGA
+        let deliveryEnabled = null;
+
+        db.collection("stats").doc("delivery").onSnapshot((doc) => {
+            deliveryEnabled = doc.exists ? (doc.data().enabled !== false) : true;
+            updateDeliveryUI();
+        });
+
+        const updateDeliveryUI = () => {
+            const iconBg   = document.getElementById('delivery-icon-bg');
+            const icon     = document.getElementById('delivery-icon');
+            const text     = document.getElementById('delivery-status-text');
+            const sub      = document.getElementById('delivery-status-sub');
+            const btn      = document.getElementById('delivery-btn');
+
+            if (deliveryEnabled) {
+                iconBg.className = 'w-14 h-14 rounded-2xl flex items-center justify-center text-2xl shrink-0 transition-colors bg-green-100 text-green-600';
+                text.innerHTML   = '<span class="text-green-600">Entrega Ativada</span>';
+                sub.textContent  = 'Clientes podem pedir entrega em casa';
+                btn.className    = 'shrink-0 px-4 py-2 rounded-xl font-bold text-sm transition-all active:scale-95 shadow-sm bg-red-100 text-red-600 hover:bg-red-200';
+                btn.innerHTML    = '<i class="fa-solid fa-ban mr-1"></i> Desativar';
+            } else {
+                iconBg.className = 'w-14 h-14 rounded-2xl flex items-center justify-center text-2xl shrink-0 transition-colors bg-gray-100 text-gray-400';
+                text.innerHTML   = '<span class="text-gray-500">Entrega Desativada</span>';
+                sub.textContent  = 'Apenas retirada no local disponível';
+                btn.className    = 'shrink-0 px-4 py-2 rounded-xl font-bold text-sm transition-all active:scale-95 shadow-sm bg-green-500 text-white hover:bg-green-600';
+                btn.innerHTML    = '<i class="fa-solid fa-check mr-1"></i> Ativar';
+            }
+        };
+
+        const toggleDelivery = async () => {
+            const btn = document.getElementById('delivery-btn');
+            btn.disabled = true;
+            try {
+                await db.collection("stats").doc("delivery").set(
+                    { enabled: !deliveryEnabled },
+                    { merge: true }
+                );
+            } catch(e) {
+                alert('Erro ao atualizar. Verifique sua conexão.');
+            } finally {
+                btn.disabled = false;
+            }
+        };
 
         const deleteProduct = async (id) => {
             if(confirm('Tem certeza que deseja excluir esse doce? Ele sumirá da loja imediatamente.')) {
