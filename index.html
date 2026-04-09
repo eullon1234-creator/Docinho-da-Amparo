@@ -183,19 +183,25 @@
                         
                         <input type="text" id="cliente-nome" placeholder="Seu nome completo" class="w-full bg-gray-50 border border-gray-200 text-sm rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-docinho-primary/50 font-medium text-gray-700">
                         
-                        <div class="grid grid-cols-2 gap-3">
-                            <select id="cliente-entrega" title="Forma de entrega" class="w-full bg-gray-50 border border-gray-200 text-sm rounded-xl px-3 py-3 focus:outline-none focus:ring-2 focus:ring-docinho-primary/50 text-gray-600 font-medium appearance-none">
-                                <option value="" disabled selected>Entrega/Retirada</option>
-                                <option value="Retirada no local">Retirada no local</option>
-                                <option value="Entrega no endereço">Entregar (motoboy)</option>
-                            </select>
+                        <div class="flex flex-col gap-3">
+                            <div class="grid grid-cols-2 gap-3">
+                                <select id="cliente-entrega" title="Forma de entrega" class="w-full bg-gray-50 border border-gray-200 text-sm rounded-xl px-3 py-3 focus:outline-none focus:ring-2 focus:ring-docinho-primary/50 text-gray-600 font-medium appearance-none">
+                                    <option value="" disabled selected>Entrega/Retirada</option>
+                                    <option value="Retirada no local">Retirada no local</option>
+                                    <option value="Entrega no endereço" id="opt-entrega">Entregar (motoboy)</option>
+                                </select>
+                                
+                                <select id="cliente-pagamento" title="Método de Pagamento" class="w-full bg-gray-50 border border-gray-200 text-sm rounded-xl px-3 py-3 focus:outline-none focus:ring-2 focus:ring-docinho-primary/50 text-gray-600 font-medium appearance-none">
+                                    <option value="" disabled selected>Pagamento</option>
+                                    <option value="Pix">Pix</option>
+                                    <option value="Dinheiro">Dinheiro</option>
+                                </select>
+                            </div>
                             
-                            <select id="cliente-pagamento" title="Método de Pagamento" class="w-full bg-gray-50 border border-gray-200 text-sm rounded-xl px-3 py-3 focus:outline-none focus:ring-2 focus:ring-docinho-primary/50 text-gray-600 font-medium appearance-none">
-                                <option value="" disabled selected>Pagamento</option>
-                                <option value="Pix">Pix</option>
-                                <option value="Dinheiro">Dinheiro</option>
-                                <option value="Cartão">Cartão</option>
-                            </select>
+                            <div id="aviso-entrega" class="hidden bg-orange-50 border border-orange-100 text-orange-700 text-xs p-3 rounded-xl font-medium flex items-center gap-2">
+                                <i class="fa-solid fa-triangle-exclamation text-lg"></i>
+                                Entrega disponível apenas para pedidos a partir de R$ 30,00.
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -395,6 +401,21 @@
             const formatted = formatCurrency(total);
             totalFloatEl.textContent = formatted;
             totalEl.textContent = formatted;
+
+            const entregaSel = document.getElementById('cliente-entrega');
+            const optEntrega = document.getElementById('opt-entrega');
+            const aviso = document.getElementById('aviso-entrega');
+
+            if (total < 30) {
+                if(entregaSel.value === 'Entrega no endereço') {
+                    entregaSel.value = 'Retirada no local';
+                }
+                optEntrega.disabled = true;
+                aviso.classList.remove('hidden');
+            } else {
+                optEntrega.disabled = false;
+                aviso.classList.add('hidden');
+            }
 
             if (count > 0) {
                 floatingCart.classList.remove('hidden');
